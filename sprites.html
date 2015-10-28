@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+ <head>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <script src="my.js"></script>
+ <title>Sprites</title>
+
+<style type="text/css">
+body {
+  background-color: #171717;  /* make page background distinguishable from canvas background */
+}
+#backCanvas {
+  background: rgba(0,0,0,1); /* black */
+}
+#frontCanvas {
+  background: rgba(0,0,0,0); /* transparent */
+}
+canvas {
+  border: 2px solid #777;
+  position: absolute;
+}
+</style>
+
+</head>
+
+<body>
+<canvas id="spriteCanvas" width="200px" height="200px"></canvas>
+</body>
+
+<script src="sprites.js"></script>
+<script>
+var canvasToUse = document.getElementById('spriteCanvas');
+var thisSimulation = new Sprites(canvasToUse);
+runningInterval = setInterval(function(){thisSimulation.TimeElapsed();},10);
+//clearInterval(runningInterval);
+
+</script>
+
+</html>

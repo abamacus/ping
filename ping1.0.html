@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+ <head>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <title>Ping</title>
+
+<style type="text/css">
+body {
+  background-color: #333;  /* make page background distinguishable from canvas background */
+}
+canvas {
+  background: #000;
+  border: 1px solid #777;
+  cursor: none;
+}
+</style>
+
+</head>
+
+<body>
+  <canvas></canvas>
+</body>
+
+<script type="text/javascript">
+function GetMousePosition(element){
+  // we will assume that the padding+border+margin is equal around the object, partly because I don't know how to tell if it's not
+  // also, this will ONLY be correct if not scrolled away from top-left
+  var borderWidth = (element.offsetWidth - element.width)/2;
+  var borderHeight = (element.offsetHeight - element.height)/2;
+  var x = window.event.x - element.offsetLeft;
+  var y = window.event.y - element.offsetTop;
+  if (x < borderWidth || x > (element.width + borderWidth) || y < borderHeight || y > (element.height + borderHeight)) {
+    mouseX = null;
+    mouseY = null;
+  } else {
+    mouseX = x - borderWidth;
+    mouseY = y - borderHeight;
+  }
+}
+
+/* dynamically setting size, and adding event handlers, just because it's kindof cool to do it this way :-) */
+var myCanvas = document.getElementsByTagName('canvas')[0];
+myCanvas.setAttribute('onmousemove','GetMousePosition(this);')
+myCanvas.setAttribute('onmouseout','GetMousePosition(this);')
+myCanvas.setAttribute('onmouseout','GetMousePosition(this);')
+myCanvas.onclick = clickEvent;
+var mouseX = null;
+var mouseY = null;
+var height = 400;
+myCanvas.height = height;
+var width = 400;
+myCanvas.width = width;
+
+var normalMaxBounce;
+var ballSpeedX;
+var ballSpeedY;
+var ballSize;
+var ballY;
+var ballX;
+var paddleWidth;
+var paddleHeight;
+var paddleCenterX;
+var paddleTop;
+var difficultyLevel;
+
+var running = false;
+var runningInterval = null;
+var gameMessage = null;
+
+function drawBall(ctx){
+  ctx.beginPath();
+  ctx.arc(ballX,ballY,ballSize,0,Math.PI*2); /* parms: x,y,r,start-angle,end-angle[,counterclockwise] */
+  ctx.closePath();
+  ctx.fillStyle='rgba(255,255,255,1)';
+  ctx.fill();
+  //ctx.strokeStyle='rgba(255,255,255,1.0)';
+  //ctx.stroke();
+}
+function drawPaddle(ctx){
+  ctx.fillStyle='rgba(0,0,255,1)';
+// simple rectangle as paddle:
+//  ctx.fillRect(paddleCenterX - paddleWidth/2,paddleTop,paddleWidth,paddleHeight);
+// more complex curved paddle, lets user see that bouncing off sides will change direction of ball
+  ctx.beginPath();
+  ctx.moveTo(paddleCenterX - paddleWidth/2,paddleTop+paddleHeight);
+  ctx.lineTo(paddleCenterX - paddleWidth/2,paddleTop+paddleHeight/2);
+  ctx.quadraticCurveTo(paddleCenterX - paddleWidth/2,
+                       paddleTop,paddleCenterX,paddleTop);
+  ctx.quadraticCurveTo(paddleCenterX + paddleWidth/2,paddleTop,
+                       paddleCenterX + paddleWidth/2,paddleTop+paddleHeight/2);
+  ctx.lineTo(paddleCenterX + paddleWidth/2,paddleTop+paddleHeight);
+  ctx.closePath();
+  ctx.fill();
+  //ctx.strokeStyle='rgba(0,0,255,1.0)';
+  //ctx.strokeRect(paddleCenterX - paddleWidth/2,paddleTop,paddleWidth,paddleHeight);
+}
+function drawDifficulty(ctx){
+  ctx.font = '10em verdana';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle='rgba(0,0,255,0.25)';
+  ctx.fillText(difficultyLevel,width/2,height/2);
+}
+function drawGameMessage(ctx){
+  if (gameMessage == null) {return;}
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle='rgba(255,255,255,1)';
+
+  theseGameMessages = gameMessage.split('\n');
+  for ( i = 0 ; i < theseGameMessages.length ; ++i ){
+    var thisGameMessage = theseGameMessages[i];
+    
+    ctx.font = '4em verdana';
+    var withAt4em = ctx.measureText(thisGameMessage).width;
+    if (withAt4em > width) { // resize text to fit in the window
+      var emSize = 4 * width / withAt4em * 0.95;
+	  ctx.font = emSize.toFixed(1) + 'em verdana';
+    }
+    var step = height / (theseGameMessages.length + 1);
+    var messageHeight = step * (i + 1);
+    ctx.fillText(thisGameMessage,width/2,messageHeight);
+  }  
+}
+function drawCursor(ctx){
+  ctx.beginPath();
+  ctx.moveTo(mouseX,mouseY+25);
+  ctx.lineTo(mouseX,mouseY);
+  ctx.lineTo(mouseX+15,mouseY+20);
+  ctx.closePath();
+  ctx.strokeStyle='rgba(0,0,255,1.0)';
+  ctx.stroke();
+}
+function draw(){
+  var ctx = myCanvas.getContext('2d');
+  ctx.clearRect(0,0,width,height); /* blank the canvas before drawing. Parms: y,x,height,width*/
+  drawDifficulty(ctx);
+  drawGameMessage(ctx)
+  drawBall(ctx);
+  drawPaddle(ctx);
+  drawCursor(ctx);  
+}
+function resetGame(){
+  difficultyLevel = 0;
+  applyDifficulty(difficultyLevel); // this will set all the values that are commented out here
+  //normalMaxBounce = ?;
+  ballSpeedX = 2.1;
+  //ballSpeedY = ;
+  //ballSize = ;
+  ballY = ballSize;
+  ballX = ballSize;
+
+  //paddleWidth = ;
+  paddleHeight = 20;
+  paddleCenterX = width/2;
+  paddleTop = height - paddleHeight;
+}
+function increaseDifficulty(){
+  /* with the current balance:
+       0- 50 easy
+      50-100 medium
+     100-150 hard
+     150+    insane */
+  difficultyLevel += 1;
+  applyDifficulty(difficultyLevel);
+}
+function applyDifficulty(level){
+  // decrease size of ball -- caps at level 180
+  ballSize = 20 - level/10;
+  if (ballSize<2){ballSize=2;}
+  // decrease size of paddle -- caps at level 190
+  paddleWidth = 200 - level;
+  if (paddleWidth<10){paddleWidth=10;}
+  // increase speed -- caps at 200
+  ballSpeedY = 4 + level/20;
+  if (ballSpeedY>14){ballSpeedY=14;}
+  // increase bounciness -- increases slowly, but no limit, so this should eventually limit ability to play
+  normalMaxBounce = 5 + level/20;
+}
+function updatePaddleLocation(){
+  if (mouseX == null) {
+    return;
+  }
+  if (mouseX != paddleCenterX) {
+    paddleCenterX = mouseX
+    if (paddleCenterX > width - paddleWidth/2) {
+      paddleCenterX = width - paddleWidth/2;
+    }
+    if (paddleCenterX < 0 + paddleWidth/2) {
+      paddleCenterX = 0 + paddleWidth/2;
+    }
+  }
+}
+function timeElapsed(){
+
+  ballX += ballSpeedX;
+  var hitWall = false;
+  if (ballSpeedX > 0) { // travelling right, check if "hit" right wall
+    if (ballX > width - ballSize) {hitWall = true}
+  } else { // travelling left, check if "hit" left wall
+    if (ballX < 0 + ballSize) {hitWall = true}
+  }
+  if (hitWall) {
+    ballSpeedX = -ballSpeedX;
+    // add some "chaos" -- when wall is hit, it may affect the speed of the other direction slightly, at random
+    ballSpeedY = ballSpeedY + Math.random() - 0.5;
+  }
+
+  ballY += ballSpeedY;
+  var hitWall = false;
+  if (ballSpeedY > 0) { // travelling down, check if "hit" paddle
+    if (ballY > height - ballSize - paddleHeight) { // in range of being able to hit the paddle
+      var centerDifference = Math.abs(ballX - paddleCenterX);
+      if (centerDifference <= paddleWidth/2 + ballSize) { // we have contact
+        hitWall = true;
+        /* We want to cause the bounce to affect the X speed, like the paddle is curved.
+           Hitting on the left side makes the ball travel more to the left, and vice versa.
+           This is the bounceSize, and should be limited from 0 to 10 (but if hitting past the edge of the paddle can be over 10). */ 
+        bounceSize = centerDifference / (paddleWidth/2) * normalMaxBounce;
+
+        /* Instead of letting the horizontal speed increase forever, set the maximum at +/- 10,
+           and let the speed increase at a slower rate the closer it is to the maximum. */
+        var ratioOfMaximum = Math.abs(ballSpeedX) / 10;
+        var bouncePowerRatio = 1 - ratioOfMaximum;
+        bounceSize *= bouncePowerRatio;
+        if (ballX < paddleCenterX) { // bouncing more to the left
+          ballSpeedX -= bounceSize;
+        } else { // bouncing more to the right
+          ballSpeedX += bounceSize;
+        }
+        increaseDifficulty();
+      } else { // check if ball lost
+        if (ballY > height + ballSize) { // ball is completely past the border, start over
+          endGame();
+        }
+      }
+    }
+  } else { // travelling up, check if "hit" top wall
+    if (ballY < 0 + ballSize) {hitWall = true}
+  }
+  if (hitWall) {
+    ballSpeedY = -ballSpeedY;
+    // add some "chaos" -- when wall is hit, it may affect the speed of the other direction slightly, at random
+    ballSpeedX = ballSpeedX + Math.random() - 0.5;
+  }
+
+  updatePaddleLocation();
+  draw();
+}
+function clickEvent(){ // best guess at user's intent
+  if (running) {
+    pauseUnpauseGame();
+  } else {
+    startGame();
+  }
+}
+function startGame(){
+  resetGame();
+  running = true;
+  gameMessage = null;
+  runningInterval = setInterval(timeElapsed,10);
+}
+function pauseUnpauseGame(){
+  if (runningInterval == null) { // not running, so resume game
+    myCanvas.style.opacity = 1.0;
+    gameMessage = null;
+    runningInterval = setInterval(timeElapsed,10);
+  } else { // pause game
+    clearInterval(runningInterval);
+    runningInterval = null;
+    myCanvas.style.opacity = 0.5;
+
+    gameMessage = 'paused';
+    draw();
+  }
+}
+function endGame(){
+  gameMessage = '\nGame Over\nClick to Start Over';
+  draw();
+  running = false;
+  clearInterval(runningInterval);
+  runningInterval = null;
+}
+
+resetGame();
+gameMessage = 'Click to Start';
+draw();
+
+</script>
+
+</html>

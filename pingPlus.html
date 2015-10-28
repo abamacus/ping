@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+ <head>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <script src="my.js"></script>
+ <title>Ping+</title>
+
+<style type="text/css">
+body {
+  background-color: #333;  /* make page background distinguishable from canvas background */
+}
+#backCanvas {
+  background: rgba(0,0,0,1); /* black */
+}
+#frontCanvas {
+  background: rgba(0,0,0,0); /* transparent */
+}
+canvas {
+  border: 20px solid #777;
+  align: center;
+  position: absolute;
+}
+</style>
+
+</head>
+
+<body>
+<canvas id="backCanvas"  style="z-index: 0;" ></canvas>
+<canvas id="frontCanvas" style="z-index: 1;" ></canvas>
+</body>
+
+<script src="pingPlus.js"></script>
+
+</html>
